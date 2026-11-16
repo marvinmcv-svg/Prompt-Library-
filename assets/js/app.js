@@ -216,7 +216,7 @@ function openPrompt(id, { push = true } = {}) {
           ${p.examples.map((e, i) => `
             <div class="ex">
               ${e.img
-                ? `<a class="thumb thumb--photo" href="${e.img}" target="_blank" rel="noopener" title="Open full image">${photo(e.img, `${e.title} — rendered example`, { kicker: `Example ${i + 1}` })}</a>`
+                ? `<a class="thumb thumb--photo" href="${e.img}" target="_blank" rel="noopener" title="Open full image">${photo(e.img, `${e.title} — rendered example`, { kicker: `${p.type === 'video' ? 'Key frame' : 'Example'} ${i + 1}` })}</a>`
                 : `<div class="thumb">${thumb({ seed: e.id, palette: c.palette, motif: e.motif, label: e.title, kicker: `Example ${i + 1}`, compact: true })}</div>`}
               <div class="ex__main">
                 <div class="ex__head"><h4>${esc(e.title)}</h4>

@@ -38,8 +38,31 @@ export const STYLISED = /cartoon|pixar|anime|manga|clay|pixel|illustrat|watercol
 
 const isGeneric = (e) => /^(From the guide|With your reference photo)$/i.test(e.title);
 
+// Video prompts describe motion; turn each into one strong key frame of that video.
+function videoStill(src) {
+  let t = src;
+  const idea = t.match(/(?:My idea|My scenes):\s*([\s\S]+)$/);
+  if (idea) {
+    const first = idea[1].replace(/^1\)\s*/, '').split(/\s+2\)/)[0].trim().replace(/\.$/, '');
+    return `Stylised feature-animation 3D render — a single key frame from a viral animated short: ${first}. Expressive cartoon characters with big eyes, cinematic lighting, rich colour, vertical 9:16, no text.`;
+  }
+  if (t.length > 1300) {
+    const paras = t.split(/\n\s*\n/);
+    const intro = paras[0].split('\n').filter((l) => !/^[A-Z0-9 &\-—:]+$/.test(l.trim())).join(' ').split(/(?<=[.!])\s+/).filter((x) => !/upload|input image|reference/i.test(x)).join(' ').slice(0, 650);
+    const ex = (t.split(/\n(?:EXAMPLE CUSTOMISATION|EXAMPLE)\n/)[1] || '').trim();
+    const aspect = (t.match(/\b(16:9|9:16|4:5|1:1)\b/) || ['16:9'])[0];
+    return `A single cinematic key frame from a premium product commercial — the advertised item is the hero, sharp, centred and beautifully lit.\n${ex.replace(/^(?:Uploaded product|Reference|Poster):/gim, 'Product:')}\nLook and feel: ${intro}\n${aspect}, full-frame image edge to edge, no letterbox bars, no black borders, no watermark.`;
+  }
+  return t
+    .replace(/^Starting from the reference image:\s*/i, 'Cinematic film still, frozen mid-action: ')
+    .replace(/^Format: \d+ seconds?,\s*/im, 'Format: one cinematic still frame from the video, ')
+    .replace(/^Technical: \d+ seconds?,\s*/im, 'Technical: one cinematic still frame, ')
+    .replace(/,?\s*realistic motion, \d+ seconds\.?/i, '. Single cinematic still frame.')
+    + '\nCaptured as one frozen frame mid-action, cinematic.';
+}
+
 export function renderPrompt(p, e) {
-  let t = e.prompt;
+  let t = p.type === 'video' ? videoStill(e.prompt) : e.prompt;
   // Bike engine examples are lists of commands — render the first one as a real scene.
   if (p.id === 'bike-engine') {
     const first = t.split('\n').find((l) => /^\/[a-z]+\/[a-z0-9]+\//i.test(l.trim()));
@@ -57,7 +80,7 @@ export function renderPrompt(p, e) {
     line = line.replace(/^Reference:/, 'Outfit:');
     line = line.replace(/Using the uploaded (?:product|image|photo) as the (?:exact|primary) reference,\s*(\w)/gi, (_, c) => c.toUpperCase());
     // Strip "keep it like the uploaded reference" clauses: there is no upload here.
-    line = line.replace(/\s*[—–-]\s*keep its exact shape[^.]*\.?/gi, '.');
+    line = line.replace(/\s*[—–-]\s*(?:keep its exact shape|match the uploaded reference)[^.]*\.?/gi, '.');
     line = line
       .split(/(?<=[.!])\s+/)
       .filter((x) => !/upload|reference image|exactly as in the (photo|reference)|consistent with the reference|identical to the reference|as in the reference/i.test(x))
@@ -65,7 +88,8 @@ export function renderPrompt(p, e) {
     out.push(line);
   }
   t = out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  t = t.replace(/\bthe subject's\b/gi, `${PERSON}'s`).replace(/\bthe subject\b/gi, PERSON).replace(/\bthe product\b/gi, PRODUCT);
+  if (!/^Subject:/m.test(t)) t = t.replace(/\bthe subject's\b/gi, `${PERSON}'s`).replace(/\bthe subject\b/gi, PERSON);
+  t = t.replace(/\bthe product\b/gi, PRODUCT);
   if (p.collection === 'bike' && isGeneric(e)) t = `${RIDER}\n\n${t}`;
   // Make the code's effect dominate: lead with it, restate it, and drop photorealism for stylised looks.
   const style = t.match(/^Style: (.+)$/m);
@@ -92,7 +116,7 @@ export function sizeFor(text) {
 
 // --------------------------------------------------------------- planning
 
-const image = PROMPTS.filter((p) => p.type === 'image');
+const image = PROMPTS.filter((p) => p.type === 'image' || args.includes('--video'));
 const primaryIdx = (p) => (isGeneric(p.examples[0]) && p.examples.length > 1 ? 1 : 0);
 // Thumbnails first (one per prompt), then every other example.
 const jobs = [];
@@ -151,7 +175,13 @@ async function generate({ p, e }) {
   if (!buf) return 'fail';
   const tmp = `${TMP}/${e.id}.img`;
   await writeFile(tmp, buf);
-  await run('convert', [tmp, '-resize', '800x800>', '-strip', '-quality', '80', dest]);
+  // Trim letterbox bars: only when the trim keeps the full width and removes 3–30% of the height.
+  const { stdout } = await run('convert', [tmp, '-bordercolor', 'black', '-border', '1', '-fuzz', '4%', '-trim', '-format', '%w %h %X %Y', 'info:']);
+  const { stdout: dims } = await run('identify', ['-format', '%w %h', tmp]);
+  const [W, H] = dims.split(' ').map(Number);
+  const [tw, th, , ty] = stdout.trim().split(' ').map((v) => Number.parseInt(v, 10));
+  const crop = tw >= W - 4 && th <= H * 0.97 && th >= H * 0.7 ? ['-crop', `${W}x${th}+0+${Math.max(0, ty - 1)}`, '+repage'] : [];
+  await run('convert', [tmp, ...crop, '-resize', '800x800>', '-strip', '-quality', '80', dest]);
   await rm(tmp);
   return 'ok';
 }
