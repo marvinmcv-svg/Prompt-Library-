@@ -65,6 +65,14 @@ export function renderPrompt(p, e) {
   t = out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   t = t.replace(/\bthe subject's\b/gi, `${PERSON}'s`).replace(/\bthe subject\b/gi, PERSON).replace(/\bthe product\b/gi, PRODUCT);
   if (p.collection === 'bike' && isGeneric(e)) t = `${RIDER}\n\n${t}`;
+  // Make the code's effect dominate: lead with it, restate it, and drop photorealism for stylised looks.
+  const style = t.match(/^Style: (.+)$/m);
+  if (style) {
+    const fx = style[1].replace(/\.$/, '');
+    t = t.replace(/^Style: .+\n?/m, '');
+    if (/cartoon|pixar|anime|manga|clay|pixel|illustrat|watercolou?r|sketch|comic|lego|painting|oil paint|vector|sticker|low[- ]poly|toy|figurine|chibi|ukiyo|line art/i.test(fx)) t = t.replace(/photorealistic, natural texture, true-to-life detail, /i, '').replace(/photorealistic,?\s*/gi, '');
+    t = `${fx}.\n${t}\nMost important: ${fx.charAt(0).toLowerCase() + fx.slice(1)} — make this effect bold, dominant and unmistakable in the image.`;
+  }
   t = t.replace(/\bthe (an?) /gi, '$1 ').replace(/\.\./g, '.');
   t = t.charAt(0).toUpperCase() + t.slice(1);
   if (t.length > 1400) t = t.slice(0, 1400);
@@ -129,6 +137,7 @@ async function generate({ p, e }) {
         else await sleep(10_000);
         if (outage < 200) { attempt--; continue; }
       }
+      if (err.status === 422) { console.warn(`  ${e.id}: blocked by the free model's content filter, using fallback`); break; }
       console.warn(`  ${e.id} attempt ${attempt}: ${err.message}`);
       await sleep(4000 * attempt);
     }
@@ -160,7 +169,8 @@ if (args.includes('--dry')) {
 
 await mkdir(OUT, { recursive: true });
 await mkdir(TMP, { recursive: true });
-const todo = jobs.filter(({ e }) => !existsSync(`${OUT}/${e.id}.webp`)).slice(0, LIMIT);
+const ONLY = (opt('--only', '') || '').split(',').filter(Boolean);
+const todo = jobs.filter(({ e }) => !existsSync(`${OUT}/${e.id}.webp`) && (!ONLY.length || ONLY.some((x) => e.id.startsWith(x)))).slice(0, LIMIT);
 console.log(`${jobs.length} image examples, ${todo.length} to render with ${MODEL}`);
 
 // Two workers, spaced to stay under the model's 15 requests/minute.
