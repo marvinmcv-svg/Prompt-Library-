@@ -208,6 +208,11 @@ function openPrompt(id, { push = true } = {}) {
         ${p.tips.length ? `<p class="m-h">Pro tips</p><ul class="tips">${p.tips.map((t) => `<li><span>${esc(t)}</span></li>`).join('')}</ul>` : ''}
       </aside>
       <div class="m-main">
+        <section class="codebox orig" aria-label="Original prompt">
+          <div class="codebox__bar"><span class="orig__label">Original prompt</span>
+            <button class="btn btn--sm btn--primary" type="button" data-copyorig>${icons.copy}Copy original</button></div>
+          <pre>${highlight(p.template)}</pre>
+        </section>
         <div class="tabs" role="tablist">
           <button role="tab" type="button" aria-selected="true" data-mtab="examples">Examples (${p.examples.length})</button>
           <button role="tab" type="button" aria-selected="false" data-mtab="template">Template${vars.length ? ` · ${vars.length} field${vars.length === 1 ? '' : 's'}` : ''}</button>
@@ -272,6 +277,7 @@ function bindModal() {
     else if (t.hasAttribute('data-share')) copy(location.href, 'Link copied');
     else if (t.dataset.copyex) copy(current.examples[+t.dataset.copyex].prompt, 'Example copied');
     else if (t.hasAttribute('data-copytpl')) copy(currentFilled(), 'Prompt copied');
+    else if (t.hasAttribute('data-copyorig')) copy(current.template, 'Original prompt copied');
     else if (t.dataset.mtab) {
       modal.querySelectorAll('[data-mtab]').forEach((b) => b.setAttribute('aria-selected', String(b === t)));
       modal.querySelectorAll('[data-mpanel]').forEach((pn) => { pn.hidden = pn.dataset.mpanel !== t.dataset.mtab; });
