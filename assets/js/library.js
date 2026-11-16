@@ -7,6 +7,7 @@ import * as BIKE from './data/bike.js';
 import { COMMERCIALS, FASHION, AD_CONCEPTS, ANIMATION, STARTERS } from './data/longform.js';
 import * as P from './data/pools.js';
 import { WORKFLOWS } from './data/workflows.js';
+import { EXAMPLE_IMAGES } from './data/images.js';
 
 export const COLLECTIONS = [
   { id: 'commercials', name: 'Signature Commercials', type: 'video', palette: ['#ff5e3a', '#ff2a68', '#14081f'], blurb: 'Shot-by-shot, 10-second product commercials. Upload one photo, paste, generate.', tools: ['Google Flow', 'Veo', 'Minimax'] },
@@ -411,6 +412,17 @@ buildLongform(FASHION, 'fashion');
 buildLongform(AD_CONCEPTS, 'ad-concepts');
 buildLongform(ANIMATION, 'animation');
 buildLongform(STARTERS, 'starters');
+
+// Real rendered images (assets/img/examples/<example-id>.webp, see scripts/generate-images.mjs).
+// The prompt's cover is its first concrete example, so "From the guide" placeholders come last.
+const IMG = new Set(EXAMPLE_IMAGES);
+export const imagePath = (id) => `assets/img/examples/${id}.webp`;
+for (const p of out) {
+  for (const e of p.examples) if (IMG.has(e.id)) e.img = imagePath(e.id);
+  const order = /^(From the guide|With your reference photo)$/i.test(p.examples[0]?.title || '') ? [...p.examples.slice(1), p.examples[0]] : p.examples;
+  const cover = order.find((e) => e.img);
+  if (cover) p.img = cover.img;
+}
 
 export const PROMPTS = out;
 export { WORKFLOWS };

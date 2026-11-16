@@ -1,8 +1,8 @@
 # Prompt Atlas — Image & Video Prompt Library
 
-**599 prompts · 1,799 copy-ready examples · 12 collections · generative thumbnails · builders · workflows**
+**599 prompts · 1,799 copy-ready examples · 12 collections · 954 real example renders · builders · workflows**
 
-Prompt Atlas is a fast, zero-dependency web library of AI image and video prompts for Google Flow (Veo / Omni Flash), ChatGPT, Gemini, Midjourney, Higgsfield, Minimax and Kling. Every prompt has an art-directed thumbnail, a fill-in template, pro tips, and **at least three complete example prompts** you can copy in one click.
+Prompt Atlas is a fast, zero-dependency web library of AI image and video prompts for Google Flow (Veo / Omni Flash), ChatGPT, Gemini, Midjourney, Higgsfield, Minimax and Kling. Every image prompt shows real rendered example images, every prompt has a thumbnail, a fill-in template, pro tips, and **at least three complete example prompts** you can copy in one click.
 
 ## Collections
 
@@ -47,7 +47,9 @@ index.html                 App shell
 assets/css/styles.css      Design system (tokens, light/dark, components)
 assets/js/app.js           UI: grid, filters, modal, builders, workflows
 assets/js/library.js       Assembles all sources into one normalised library (pure, testable)
-assets/js/thumbs.js        Deterministic generative SVG thumbnails (13 motifs)
+assets/js/thumbs.js        Generative SVG covers for video prompts (13 motifs)
+assets/img/examples/       Real rendered example images (WebP, one per image example)
+scripts/generate-images.mjs Renders example images and writes assets/js/data/images.js
 assets/js/data/*.js        Source prompt data, subject pools and workflows
 tests/library.test.mjs     Node test suite
 ```
@@ -60,6 +62,8 @@ tests/library.test.mjs     Node test suite
 
 ## Notes
 
-- Thumbnails are generative art-direction covers, not model outputs. To use real renders, add a `thumbUrl` to a prompt and swap it in `promptThumb()` in `app.js`.
+- **Real example images**: every image-prompt example has a real render in `assets/img/examples/<example-id>.webp`, generated from that example's prompt by `scripts/generate-images.mjs` (Pollinations API; Lucid Origin, with Z-Image Turbo as fallback). The prompt's cover is its first concrete example. Video prompts keep generative SVG covers. To (re)render, delete an image and run:
+  `NODE_USE_ENV_PROXY=1 POLLINATIONS_KEY=sk_... node scripts/generate-images.mjs` — it is resumable and rewrites `assets/js/data/images.js`. Never commit the key.
+- The renders were made without an uploaded reference, so the "uploaded reference" parts of a prompt are swapped for a concrete subject at render time. Your results with your own photo will follow your reference.
 - Slash commands are reusable style labels. If a tool doesn't autocomplete `/`, the plain-English line under the command still works.
 - Prompts were curated from the creator guides in the project's Google Drive folder (Google Flow command guides, Higgsfield-in-ChatGPT, Bike Style, Editorial commands, Fashion Campaign, 3D animation shorts and the thefhd.ai commercial prompts).

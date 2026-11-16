@@ -112,7 +112,7 @@ p { margin: 0; }
 .chip:hover { background: rgba(255,255,255,.14); }
 
 .hero__mosaic { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; transform: rotate(-4deg); min-width: 0; }
-.hero__mosaic .tile { border-radius: 14px; overflow: hidden; aspect-ratio: 16/10; box-shadow: 0 18px 40px rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.08); cursor: pointer; transition: transform .25s; }
+.hero__mosaic .tile { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 16/10; box-shadow: 0 18px 40px rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.08); cursor: pointer; transition: transform .25s; }
 .hero__mosaic .tile:hover { transform: translateY(-4px) scale(1.02); }
 .hero__mosaic .tile:nth-child(3n+2) { transform: translateY(22px); }
 .hero__mosaic .tile:nth-child(3n+2):hover { transform: translateY(18px) scale(1.02); }
@@ -158,6 +158,13 @@ p { margin: 0; }
 .card__open:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; border-radius: var(--radius); }
 .thumb { position: relative; aspect-ratio: 16/10; overflow: hidden; background: #111; }
 .thumb svg { width: 100%; height: 100%; }
+.thumb .photo, .tile .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s ease; }
+.card:hover .thumb .photo, .tile:hover .photo, .coll:hover .photo { transform: scale(1.04); }
+.thumb:has(> .photo)::after { display: none; }
+.ov { position: absolute; inset: auto 0 0 0; display: flex; flex-direction: column; gap: 2px; padding: 40px 14px 12px; background: linear-gradient(to top, rgba(0,0,0,.72), transparent); color: #fff; pointer-events: none; }
+.ov__k { font: 600 11px var(--font); letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+.ov__l { font: 700 clamp(15px, 2.2vw, 22px) var(--font); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thumb--photo { display: block; cursor: zoom-in; }
 .thumb::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .22; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 .badges { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; z-index: 1; }
@@ -221,7 +228,7 @@ p { margin: 0; }
 .ex { display: grid; gap: 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); }
 .ex .thumb { aspect-ratio: 16/10; width: 100%; }
 .ex .thumb svg { position: absolute; inset: 0; }
-@media (min-width: 720px) { .ex { grid-template-columns: 220px minmax(0, 1fr); } .ex .thumb { align-self: start; border-right: 1px solid var(--border); } }
+@media (min-width: 720px) { .ex { grid-template-columns: 260px minmax(0, 1fr); } .ex .thumb { align-self: start; border-right: 1px solid var(--border); } }
 .ex__main { display: flex; flex-direction: column; min-width: 0; }
 .ex__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 16px; border-bottom: 1px solid var(--border); }
 .ex__head h4 { font-size: 15px; font-family: var(--font); font-weight: 600; letter-spacing: 0; }

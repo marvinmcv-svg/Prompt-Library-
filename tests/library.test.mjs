@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PROMPTS, COLLECTIONS, WORKFLOWS, templateVars, fillTemplate, stats, bikeExpand } from '../assets/js/library.js';
 import { thumb, MOTIFS } from '../assets/js/thumbs.js';
+import { EXAMPLE_IMAGES } from '../assets/js/data/images.js';
+import { existsSync } from 'node:fs';
 
 test('library has the expected scale', () => {
   const s = stats();
@@ -66,4 +68,14 @@ test('thumbnails render deterministic, escaped SVG', () => {
   assert.ok(a.includes('&lt;b&gt;&amp;'));
   assert.equal(a.replace(/t\d+/g, ''), b.replace(/t\d+/g, ''));
   for (const m of MOTIFS) assert.match(thumb({ seed: m, palette: ['#123456', '#654321', '#000000'], motif: m, label: m }), /<\/svg>$/);
+});
+
+test('rendered example images resolve to real examples and files', () => {
+  const examples = new Map(PROMPTS.flatMap((p) => p.examples.map((e) => [e.id, e])));
+  for (const id of EXAMPLE_IMAGES) {
+    assert.ok(examples.has(id), `image for unknown example ${id}`);
+    assert.ok(existsSync(new URL(`../assets/img/examples/${id}.webp`, import.meta.url)), `missing file for ${id}`);
+    assert.equal(examples.get(id).img, `assets/img/examples/${id}.webp`);
+  }
+  for (const p of PROMPTS) if (p.examples.some((e) => e.img)) assert.ok(p.img, `${p.id} has example images but no cover`);
 });

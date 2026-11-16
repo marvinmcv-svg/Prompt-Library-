@@ -46,8 +46,13 @@ async function copy(text, label = 'Copied to clipboard') {
 
 const highlight = (text) => esc(text).replace(/\[([A-Z0-9][A-Z0-9 /+,&'.\-]*)\]/g, '<mark>[$1]</mark>');
 
+function photo(src, alt, { label = '', kicker = '' } = {}) {
+  return `<img class="photo" src="${src}" alt="${esc(alt)}" loading="lazy" decoding="async" />${kicker || label ? `<span class="ov">${kicker ? `<span class="ov__k">${esc(kicker)}</span>` : ''}${label ? `<span class="ov__l">${esc(label)}</span>` : ''}</span>` : ''}`;
+}
+
 function promptThumb(p, { compact = false, kicker = true } = {}) {
   const c = collById.get(p.collection);
+  if (p.img) return photo(p.img, `${p.title} — example render`, { label: p.cmd, kicker: kicker ? c.name : '' });
   return thumb({ seed: p.id, palette: c.palette, motif: p.motif, label: p.cmd, kicker: kicker ? c.name : '', compact });
 }
 const kickerText = (p) => { const c = collById.get(p.collection); return p.group && p.group !== c.name ? `${c.name} · ${p.group}` : c.name; };
@@ -210,7 +215,9 @@ function openPrompt(id, { push = true } = {}) {
         <div data-mpanel="examples" class="examples">
           ${p.examples.map((e, i) => `
             <div class="ex">
-              <div class="thumb">${thumb({ seed: e.id, palette: c.palette, motif: e.motif, label: e.title, kicker: `Example ${i + 1}`, compact: true })}</div>
+              ${e.img
+                ? `<a class="thumb thumb--photo" href="${e.img}" target="_blank" rel="noopener" title="Open full image">${photo(e.img, `${e.title} — rendered example`, { kicker: `Example ${i + 1}` })}</a>`
+                : `<div class="thumb">${thumb({ seed: e.id, palette: c.palette, motif: e.motif, label: e.title, kicker: `Example ${i + 1}`, compact: true })}</div>`}
               <div class="ex__main">
                 <div class="ex__head"><h4>${esc(e.title)}</h4>
                   <button class="btn btn--sm" type="button" data-copyex="${i}">${icons.copy}Copy</button></div>
@@ -289,15 +296,19 @@ function renderHero() {
   const chips = ['Product reveal', 'UGC', 'Billboard', 'Editorial', 'Orbit', 'Neon', 'Miniature', 'Rain', 'Luxury'];
   $('#quickChips').innerHTML = chips.map((c) => `<button class="chip" type="button" data-q="${esc(c)}">${esc(c)}</button>`).join('');
   const mosaicIds = ['analog-hyperkinetic-commercial', 'bike-hero-silhouette-anamorphic-sunset', 'flow-product-productinspace', 'editorial-zerogravityeditorial', 'camera-orbit-360', 'flow-product-dubaibillboardad', 'neon-cyber-commercial', 'miniature-3d-menu', 'higgsfield-neon'];
-  $('#mosaic').innerHTML = mosaicIds.map((id) => byId.get(id)).filter(Boolean).map((p) => `<div class="tile" data-open="${p.id}">${promptThumb(p)}</div>`).join('');
+  const photoIds = ['editorial-zerogravityeditorial', 'bike-hero-silhouette-anamorphic-sunset', 'higgsfield-neon', 'prompt-codes-dimensionrift', 'editorial-raineditorial', 'ad-giant-product', 'fashion-campaign-master', 'bike-hero-lowangle-35mm-cinematic', 'editorial-paparazzieditorial'];
+  const withPhotos = photoIds.filter((id) => byId.get(id)?.img);
+  const tiles = [...withPhotos, ...mosaicIds].filter((id, i, a) => a.indexOf(id) === i).slice(0, 9);
+  $('#mosaic').innerHTML = tiles.map((id) => byId.get(id)).filter(Boolean).map((p) => `<div class="tile" data-open="${p.id}">${promptThumb(p)}</div>`).join('');
 }
 
 function renderCollections() {
   $('#collectionGrid').innerHTML = COLLECTIONS.map((c) => {
     const n = PROMPTS.filter((p) => p.collection === c.id).length;
     const first = PROMPTS.find((p) => p.collection === c.id);
+    const cover = PROMPTS.find((p) => p.collection === c.id && p.img);
     return `<button class="coll" type="button" data-coll="${c.id}">
-      <div class="thumb">${thumb({ seed: `coll-${c.id}`, palette: c.palette, motif: first.motif, label: c.name, kicker: `${n} prompts · ${c.type}` })}</div>
+      <div class="thumb">${cover ? photo(cover.img, `${c.name} cover`, { label: c.name, kicker: `${n} prompts · ${c.type}` }) : thumb({ seed: `coll-${c.id}`, palette: c.palette, motif: first.motif, label: c.name, kicker: `${n} prompts · ${c.type}` })}</div>
       <div class="coll__body"><div class="coll__top"><h3>${esc(c.name)}</h3><span class="coll__n">${n}</span></div><p>${esc(c.blurb)}</p></div>
     </button>`;
   }).join('');
