@@ -92,6 +92,7 @@ for (const p of image) p.examples.forEach((e, i) => { if (i !== primaryIdx(p)) j
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let fallbacks = 0;
+let outage = 0;
 
 async function fetchImage(prompt, { w, h }, seed, model) {
   const url = new URL(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`);
@@ -118,8 +119,16 @@ async function generate({ p, e }) {
   for (let attempt = 1; attempt <= 4 && !buf; attempt++) {
     try {
       buf = await fetchImage(prompt, size, seed, MODEL);
+      outage = 0;
     } catch (err) {
       if (err.status === 429) { await sleep((err.retryAfter || 20) * 1000); attempt--; continue; }
+      // Provider outage (5xx / network): wait it out instead of burning attempts.
+      if (!err.status || err.status >= 500) {
+        outage++;
+        if (outage > 6) { console.warn(`  provider down (${err.message.slice(0, 60)}), pausing 90s`); await sleep(90_000); }
+        else await sleep(10_000);
+        if (outage < 200) { attempt--; continue; }
+      }
       console.warn(`  ${e.id} attempt ${attempt}: ${err.message}`);
       await sleep(4000 * attempt);
     }
@@ -167,7 +176,7 @@ async function worker() {
     if ((done + failed) % 10 === 0) { const n = await writeManifest(); console.log(`  ${done} rendered, ${failed} failed, ${n} total on disk`); }
   }
 }
-await Promise.all([worker(), worker()]);
+await Promise.all(Array.from({ length: Number(opt('--workers', 1)) }, worker));
 const total = await writeManifest();
 await rm(TMP, { recursive: true, force: true });
 console.log(`Done: ${done} rendered, ${failed} failed, ${fallbacks} via fallback. ${total}/${jobs.length} examples have images.`);
