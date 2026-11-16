@@ -70,7 +70,7 @@ export function renderPrompt(p, e) {
   // Make the code's effect dominate: lead with it, restate it, and drop photorealism for stylised looks.
   const style = t.match(/^Style: (.+)$/m);
   if (style) {
-    const fx = style[1].replace(/\.$/, '');
+    const fx = style[1].replace(/\.$/, '').replace(/^(?:Converts|Turns|Transforms|Reimagines) .+? into (?:an? )?/i, 'Rendered as ');
     t = t.replace(/^Style: .+\n?/m, '');
     const stylised = STYLISED.test(fx);
     if (stylised) t = t.replace(/photorealistic, natural texture, true-to-life detail, /i, '').replace(/photorealistic,?\s*/gi, '').replace(/^Camera: .+\n?/m, '');
@@ -125,7 +125,7 @@ async function generate({ p, e }) {
   if (existsSync(dest)) return 'skip';
   const prompt = renderPrompt(p, e);
   const size = sizeFor(prompt);
-  const seed = Number.parseInt(e.id.split('').reduce((h, c) => ((h * 31 + c.charCodeAt(0)) >>> 0), 7)) % 1_000_000;
+  const seed = Number.parseInt((opt('--seed-salt', '') + e.id).split('').reduce((h, c) => ((h * 31 + c.charCodeAt(0)) >>> 0), 7)) % 1_000_000;
   let buf;
   for (let attempt = 1; attempt <= 4 && !buf; attempt++) {
     try {
