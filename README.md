@@ -27,7 +27,7 @@ Prompt Atlas is a fast, zero-dependency web library of AI image and video prompt
 - **Prompt detail** — thumbnail, setup notes, best-for tags, pro tips, 3+ example prompts with their own covers, and a **live fill-in template** for every `[BRACKETED]` variable.
 - **Builders** — Bike Style command builder, Flow command stacker, Editorial formula, Camera director.
 - **Workflows** — six step-by-step playbooks linking straight to the prompts they use.
-- **Saved prompts** (stored locally), deep links (`#p=<prompt-id>`), light/dark theme, keyboard navigation (`←` / `→` in the detail view), fully responsive.
+- **Saved prompts** (stored locally), deep links (`#p-<prompt-id>`), light/dark theme, keyboard navigation (`←` / `→` in the detail view), fully responsive.
 
 ## Run it
 

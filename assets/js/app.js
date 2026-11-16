@@ -231,7 +231,7 @@ function openPrompt(id, { push = true } = {}) {
   const modal = $('#modal');
   if (!modal.open) modal.showModal();
   body.scrollTop = 0;
-  if (push) history.replaceState(null, '', `#p=${encodeURIComponent(p.id)}`);
+  if (push) history.replaceState(null, '', `#p-${p.id}`);
 }
 
 function closeModal() {
@@ -241,7 +241,7 @@ function closeModal() {
 
 function onModalClosed() {
   current = null;
-  if (location.hash.startsWith('#p=')) history.replaceState(null, '', location.pathname + location.search);
+  if (location.hash.startsWith('#p-')) history.replaceState(null, '', location.pathname + location.search);
 }
 
 function navModal(dir) {
@@ -535,7 +535,7 @@ function bindGlobal() {
 }
 
 function routeHash() {
-  const m = location.hash.match(/^#p=(.+)$/);
+  const m = location.hash.match(/^#p-([a-z0-9-]+)$/);
   if (m) openPrompt(decodeURIComponent(m[1]), { push: false });
 }
 
