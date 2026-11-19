@@ -7,6 +7,7 @@ import * as BIKE from './data/bike.js';
 import { COMMERCIALS, FASHION, AD_CONCEPTS, ANIMATION, STARTERS } from './data/longform.js';
 import * as P from './data/pools.js';
 import { WORKFLOWS } from './data/workflows.js';
+import { USE_CASES } from './data/usecases.js';
 import { EXAMPLE_IMAGES } from './data/images.js';
 
 export const COLLECTIONS = [
@@ -21,6 +22,7 @@ export const COLLECTIONS = [
   { id: 'fashion', name: 'Fashion Campaign', type: 'image', palette: ['#f7c6d9', '#a874d6', '#170e22'], blurb: 'One garment photo → a full, consistent fashion campaign.', tools: ['Google Flow', 'Gemini', 'ChatGPT'] },
   { id: 'ad-concepts', name: 'Ad Concepts', type: 'image', palette: ['#ffe14d', '#ff7a45', '#1c1204'], blurb: 'Command-based ad directions: bus-stop, unboxing, celebrity-style, giant product.', tools: ['ChatGPT', 'Gemini', 'Midjourney'] },
   { id: 'animation', name: '3D Animation Shorts', type: 'video', palette: ['#7cf29c', '#28c2ff', '#06171c'], blurb: 'Idea → story → scenes → animation: the viral 3D shorts pipeline.', tools: ['ChatGPT', 'Google Flow', 'Kling'] },
+  { id: 'use-cases', name: 'Use-Case Packs', type: 'image', palette: ['#ffd36e', '#ff7eb3', '#1a0f1c'], blurb: 'Ready prompts for headshots, real estate, weddings, YouTube thumbnails, menus and branding.', tools: ['ChatGPT', 'Gemini', 'Midjourney'] },
   { id: 'starters', name: 'Starter Prompts', type: 'image', palette: ['#9ab8ff', '#5a6cff', '#0a0d22'], blurb: 'Proven first prompts, helpers and Higgsfield starters.', tools: ['Any model'] },
 ];
 
@@ -241,7 +243,7 @@ function buildCamera() {
 
 // One-word image codes (Prompt Codes + Higgsfield) ---------------------------
 
-const POSES = ['looking just past the camera', 'mid-stride with natural movement', 'leaning against a textured wall', 'glancing over one shoulder', 'laughing candidly', 'seated with elbows on knees'];
+const POSES = ['looking just past the camera', 'mid-stride with natural movement', 'leaning against a textured wall', 'glancing over one shoulder', 'laughing candidly', 'seated with elbows on knees', 'arms crossed with quiet confidence', 'turning toward the camera mid-motion', 'eyes closed, face tilted to the light', 'crouching low with a playful grin', 'adjusting a sleeve, looking down', 'jumping mid-air with joy'];
 const IMG_LENSES = ['85mm f/1.8 at eye level', '35mm f/2 from a slightly low angle', '50mm f/1.4, chest-up framing', '24mm wide environmental framing'];
 const ART_GROUPS = /Art Styles|Character Transformation|Viral Social/;
 
@@ -413,6 +415,7 @@ buildBike();
 buildLongform(FASHION, 'fashion');
 buildLongform(AD_CONCEPTS, 'ad-concepts');
 buildLongform(ANIMATION, 'animation');
+buildLongform(USE_CASES, 'use-cases');
 buildLongform(STARTERS, 'starters');
 
 // Real rendered images (assets/img/examples/<example-id>.webp, see scripts/generate-images.mjs).

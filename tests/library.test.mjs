@@ -9,7 +9,7 @@ test('library has the expected scale', () => {
   const s = stats();
   assert.ok(s.prompts >= 590, `expected 590+ prompts, got ${s.prompts}`);
   assert.ok(s.examples >= s.prompts * 3, 'every prompt should average at least 3 examples');
-  assert.equal(s.collections, 12);
+  assert.equal(s.collections, 13);
 });
 
 test('collection counts match the source guides', () => {
@@ -21,6 +21,7 @@ test('collection counts match the source guides', () => {
   assert.equal(count('prompt-codes'), 51);
   assert.equal(count('higgsfield'), 120);
   assert.equal(count('bike'), 108); // engine + 7 hero + 100 library
+  assert.equal(count('use-cases'), 24); // 6 packs × 4
 });
 
 test('every prompt is complete and has 3+ distinct examples', () => {
