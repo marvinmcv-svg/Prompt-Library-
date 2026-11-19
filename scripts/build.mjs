@@ -88,9 +88,30 @@ for (const p of PROMPTS) {
   if (Object.keys(renders).length) await writeFile(`${DIST}/assets/renders/${p.id}.json`, JSON.stringify(renders));
 }
 
+// Collection pages: /c/<id> lists every prompt with links (a crawl path to all prompt pages)
+for (const c of COLLECTIONS) {
+  const items = PROMPTS.filter((p) => p.collection === c.id);
+  const cover = items.find((p) => p.img)?.img;
+  const url = `${SITE}/c/${c.id}`;
+  const body = `<section id="prerender" class="wrap prerender">
+    <p><a href="/">← All collections</a></p>
+    <h1>${esc(c.name)}</h1>
+    <p>${esc(c.blurb)} ${items.length} prompts.</p>
+    <ul>${items.map((p) => `<li><a href="/p/${p.id}">${esc(p.title)}</a> — <code>${esc(p.cmd)}</code> ${esc(p.desc)}</li>`).join('')}</ul>
+  </section>`;
+  const html = headFor({
+    title: `${c.name} — ${items.length} AI ${c.type} prompts | Prompt Atlas`,
+    description: clip(`${c.blurb} ${items.length} copy-ready prompts with example renders for ${c.tools.join(', ')}.`, 160),
+    url, image: cover && `${SITE}/${cover}`,
+    jsonld: { '@context': 'https://schema.org', '@type': 'CollectionPage', name: c.name, description: c.blurb, url, hasPart: items.map((p) => ({ '@type': 'CreativeWork', name: p.title, url: `${SITE}/p/${p.id}` })) },
+  }).replace('</header>', `</header>\n  ${body}`);
+  await mkdir(`${DIST}/c/${c.id}`, { recursive: true });
+  await writeFile(`${DIST}/c/${c.id}/index.html`, html);
+}
+
 // Sitemap + robots
 const today = new Date().toISOString().slice(0, 10);
-await writeFile(`${DIST}/sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[`${SITE}/`, ...PROMPTS.map((p) => `${SITE}/p/${p.id}`)].map((u) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod></url>`).join('\n')}\n</urlset>\n`);
+await writeFile(`${DIST}/sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[`${SITE}/`, ...COLLECTIONS.map((c) => `${SITE}/c/${c.id}`), ...PROMPTS.map((p) => `${SITE}/p/${p.id}`)].map((u) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod></url>`).join('\n')}\n</urlset>\n`);
 await writeFile(`${DIST}/robots.txt`, `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`);
 
-console.log(`Built ${PROMPTS.length} prompt pages, sitemap and robots.txt into dist/ for ${SITE}`);
+console.log(`Built ${PROMPTS.length} prompt pages, ${COLLECTIONS.length} collection pages, sitemap and robots.txt into dist/ for ${SITE}`);

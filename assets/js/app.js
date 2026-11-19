@@ -325,10 +325,10 @@ function renderCollections() {
     const n = PROMPTS.filter((p) => p.collection === c.id).length;
     const first = PROMPTS.find((p) => p.collection === c.id);
     const cover = PROMPTS.find((p) => p.collection === c.id && p.img);
-    return `<button class="coll" type="button" data-coll="${c.id}">
+    return `<a class="coll" href="/c/${c.id}" data-coll="${c.id}">
       <div class="thumb">${cover ? photo(cover.img, `${c.name} cover`, { label: c.name, kicker: `${n} prompts · ${c.type}` }) : thumb({ seed: `coll-${c.id}`, palette: c.palette, motif: first.motif, label: c.name, kicker: `${n} prompts · ${c.type}` })}</div>
       <div class="coll__body"><div class="coll__top"><h3>${esc(c.name)}</h3><span class="coll__n">${n}</span></div><p>${esc(c.blurb)}</p></div>
-    </button>`;
+    </a>`;
   }).join('');
 }
 
@@ -541,7 +541,7 @@ function bindGlobal() {
     if (t.dataset.open) openPrompt(t.dataset.open);
     else if (t.dataset.copy) copy(byId.get(t.dataset.copy).examples[0].prompt, 'Example copied');
     else if (t.dataset.save) toggleSave(t.dataset.save);
-    else if (t.dataset.coll) setFilter({ collection: t.dataset.coll, q: '' }, { scroll: true });
+    else if (t.dataset.coll) { e.preventDefault(); setFilter({ collection: t.dataset.coll, q: '' }, { scroll: true }); }
     else if (t.dataset.q) setFilter({ q: t.dataset.q }, { scroll: true });
   });
 
@@ -568,7 +568,9 @@ function routeHash() {
   const legacy = location.hash.match(/^#p-([a-z0-9-]+)$/);
   if (legacy) return openPrompt(decodeURIComponent(legacy[1]), { push: 'replace' });
   const m = location.pathname.match(/^\/p\/([a-z0-9-]+)\/?$/);
-  if (m) { if (current?.id !== m[1]) openPrompt(m[1], { push: false }); }
+  const cm = location.pathname.match(/^\/c\/([a-z0-9-]+)\/?$/);
+  if (cm && collById.has(cm[1])) { if ($('#modal').open) $('#modal').close(); setFilter({ collection: cm[1], q: '' }, { scroll: true }); history.replaceState(null, '', '/'); }
+  else if (m) { if (current?.id !== m[1]) openPrompt(m[1], { push: false }); }
   else if ($('#modal').open) $('#modal').close();
 }
 

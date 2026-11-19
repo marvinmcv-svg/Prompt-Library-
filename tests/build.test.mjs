@@ -22,4 +22,7 @@ test('build emits a page, render prompts and sitemap entry for every prompt', ()
   const renders = JSON.parse(readFileSync(dist(`assets/renders/${p.id}.json`), 'utf8'));
   for (const e of p.examples) if (e.img) assert.ok(renders[e.id]?.length > 40, `render prompt for ${e.id}`);
   assert.ok(existsSync(dist('robots.txt')));
+  const coll = readFileSync(dist('c/editorial/index.html'), 'utf8');
+  for (const x of PROMPTS.filter((q) => q.collection === 'editorial')) assert.ok(coll.includes(`href="/p/${x.id}"`), `collection page links ${x.id}`);
+  assert.ok(sitemap.includes('https://example.test/c/editorial<'));
 });
