@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Prompt Atlas — a curated image & video AI prompt library with thumbnails and copy-ready examples.",
+  "description": "Prompt Atlas \u2014 a curated image & video AI prompt library with thumbnails and copy-ready examples.",
   "scripts": {
-    "start": "python3 -m http.server 5173",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && python3 -m http.server -d dist 5173",
     "test": "node --test tests/*.test.mjs"
   }
 }

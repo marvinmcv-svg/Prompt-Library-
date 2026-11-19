@@ -1,4 +1,4 @@
-import { PROMPTS, COLLECTIONS, WORKFLOWS, BIKE_DICT, bikeExpand, templateVars, fillTemplate, stats, slug } from './library.js';
+import { PROMPTS, COLLECTIONS, WORKFLOWS, BIKE_DICT, bikeExpand, templateVars, fillTemplate, stats, slug, searchPrompts } from './library.js';
 import { thumb } from './thumbs.js';
 import { CINE_CAMERAS, CINE_LOOKS, LIGHTS } from './data/pools.js';
 
@@ -46,13 +46,13 @@ async function copy(text, label = 'Copied to clipboard') {
 
 const highlight = (text) => esc(text).replace(/\[([A-Z0-9][A-Z0-9 /+,&'.\-]*)\]/g, '<mark>[$1]</mark>');
 
-function photo(src, alt, { label = '', kicker = '' } = {}) {
-  return `<img class="photo" src="${src}" alt="${esc(alt)}" loading="lazy" decoding="async" />${kicker || label ? `<span class="ov">${kicker ? `<span class="ov__k">${esc(kicker)}</span>` : ''}${label ? `<span class="ov__l">${esc(label)}</span>` : ''}</span>` : ''}`;
+function photo(src, alt, { label = '', kicker = '', eager = false } = {}) {
+  return `<img class="photo" src="${src}" alt="${esc(alt)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" />${kicker || label ? `<span class="ov">${kicker ? `<span class="ov__k">${esc(kicker)}</span>` : ''}${label ? `<span class="ov__l">${esc(label)}</span>` : ''}</span>` : ''}`;
 }
 
-function promptThumb(p, { compact = false, kicker = true } = {}) {
+function promptThumb(p, { compact = false, kicker = true, eager = false } = {}) {
   const c = collById.get(p.collection);
-  if (p.img) return photo(p.img, `${p.title} — example render`, { label: p.cmd, kicker: kicker ? c.name : '' });
+  if (p.img) return photo(p.img, `${p.title} — example render`, { label: p.cmd, kicker: kicker ? c.name : '', eager });
   return thumb({ seed: p.id, palette: c.palette, motif: p.motif, label: p.cmd, kicker: kicker ? c.name : '', compact });
 }
 const kickerText = (p) => { const c = collById.get(p.collection); return p.group && p.group !== c.name ? `${c.name} · ${p.group}` : c.name; };
@@ -78,14 +78,13 @@ const featuredOrder = (() => {
 })();
 
 function filtered() {
-  const terms = state.q.toLowerCase().split(/\s+/).filter(Boolean);
   let list = state.sort === 'featured' ? featuredOrder : PROMPTS.slice();
   list = list.filter((p) =>
     (state.type === 'all' || p.type === state.type) &&
     (state.collection === 'all' || p.collection === state.collection) &&
     (state.tool === 'all' || p.tools.includes(state.tool)) &&
-    (!state.saved || saved.has(p.id)) &&
-    terms.every((t) => p.search.includes(t) || p.examples.some((e) => e.title.toLowerCase().includes(t))));
+    (!state.saved || saved.has(p.id)));
+  if (state.q.trim()) list = searchPrompts(list, state.q); // ranked by relevance
   if (state.sort === 'az') list = list.slice().sort((a, b) => a.title.localeCompare(b.title));
   if (state.sort === 'collection') list = list.slice().sort((a, b) => COLLECTIONS.findIndex((c) => c.id === a.collection) - COLLECTIONS.findIndex((c) => c.id === b.collection));
   if (state.sort === 'random') list = list.slice().sort(() => Math.random() - 0.5);
@@ -224,9 +223,11 @@ function openPrompt(id, { push = true } = {}) {
                 ? `<a class="thumb thumb--photo" href="${e.img}" target="_blank" rel="noopener" title="Open full image">${photo(e.img, `${e.title} — rendered example`, { kicker: `${p.type === 'video' ? 'Key frame' : 'Example'} ${i + 1}` })}</a>`
                 : `<div class="thumb">${thumb({ seed: e.id, palette: c.palette, motif: e.motif, label: e.title, kicker: `Example ${i + 1}`, compact: true })}</div>`}
               <div class="ex__main">
-                <div class="ex__head"><h4>${esc(e.title)}</h4>
+                <div class="ex__head"><h3>${esc(e.title)}</h3>
                   <button class="btn btn--sm" type="button" data-copyex="${i}">${icons.copy}Copy</button></div>
                 <pre>${esc(e.prompt)}</pre>
+                ${e.img ? `<p class="ex__note"><span>Example render · free model (Lucid Origin / Z-Image), not Flow or ChatGPT — results vary.</span>
+                  <button class="linkbtn" type="button" data-copyrender="${e.id}" hidden>Copy image prompt</button></p>` : ''}
               </div>
             </div>`).join('')}
         </div>
@@ -243,7 +244,11 @@ function openPrompt(id, { push = true } = {}) {
   const modal = $('#modal');
   if (!modal.open) modal.showModal();
   body.scrollTop = 0;
-  if (push) history.replaceState(null, '', `#p-${p.id}`);
+  const url = `/p/${p.id}`;
+  if (push === 'replace') history.replaceState({ p: p.id }, '', url);
+  else if (push && location.pathname !== url) history.pushState({ p: p.id }, '', url);
+  document.title = `${p.title} — Prompt Atlas`;
+  loadRenders(p);
 }
 
 function closeModal() {
@@ -253,7 +258,8 @@ function closeModal() {
 
 function onModalClosed() {
   current = null;
-  if (location.hash.startsWith('#p-')) history.replaceState(null, '', location.pathname + location.search);
+  document.title = 'Prompt Atlas';
+  if (location.pathname.startsWith('/p/') || location.hash.startsWith('#p-')) history.pushState(null, '', '/' + location.search);
 }
 
 function navModal(dir) {
@@ -261,7 +267,7 @@ function navModal(dir) {
   const list = state.list.length ? state.list : PROMPTS;
   let i = list.findIndex((p) => p.id === current.id);
   if (i === -1) i = 0;
-  openPrompt(list[(i + dir + list.length) % list.length].id);
+  openPrompt(list[(i + dir + list.length) % list.length].id, { push: 'replace' });
 }
 
 function bindModal() {
@@ -275,9 +281,10 @@ function bindModal() {
     else if (t.dataset.nav) navModal(+t.dataset.nav);
     else if (t.dataset.save) toggleSave(t.dataset.save);
     else if (t.hasAttribute('data-share')) copy(location.href, 'Link copied');
-    else if (t.dataset.copyex) copy(current.examples[+t.dataset.copyex].prompt, 'Example copied');
+    else if (t.dataset.copyex) { copy(current.examples[+t.dataset.copyex].prompt, 'Example copied'); track('copy', current.id, `example-${+t.dataset.copyex + 1}`); }
     else if (t.hasAttribute('data-copytpl')) copy(currentFilled(), 'Prompt copied');
-    else if (t.hasAttribute('data-copyorig')) copy(current.template, 'Original prompt copied');
+    else if (t.hasAttribute('data-copyorig')) { copy(current.template, 'Original prompt copied'); track('copy', current.id, 'original'); }
+    else if (t.dataset.copyrender) copy(renders[t.dataset.copyrender], 'Image prompt copied');
     else if (t.dataset.mtab) {
       modal.querySelectorAll('[data-mtab]').forEach((b) => b.setAttribute('aria-selected', String(b === t)));
       modal.querySelectorAll('[data-mpanel]').forEach((pn) => { pn.hidden = pn.dataset.mpanel !== t.dataset.mtab; });
@@ -305,7 +312,7 @@ function renderHero() {
   const photoIds = ['editorial-zerogravityeditorial', 'bike-hero-silhouette-anamorphic-sunset', 'higgsfield-neon', 'prompt-codes-dimensionrift', 'editorial-raineditorial', 'ad-giant-product', 'fashion-campaign-master', 'bike-hero-lowangle-35mm-cinematic', 'editorial-paparazzieditorial'];
   const withPhotos = photoIds.filter((id) => byId.get(id)?.img);
   const tiles = [...withPhotos, ...mosaicIds].filter((id, i, a) => a.indexOf(id) === i).slice(0, 9);
-  $('#mosaic').innerHTML = tiles.map((id) => byId.get(id)).filter(Boolean).map((p) => `<div class="tile" data-open="${p.id}">${promptThumb(p)}</div>`).join('');
+  $('#mosaic').innerHTML = tiles.map((id) => byId.get(id)).filter(Boolean).map((p, i) => `<div class="tile" data-open="${p.id}">${promptThumb(p, { eager: i < 3 })}</div>`).join('');
 }
 
 function renderCollections() {
@@ -549,11 +556,32 @@ function bindGlobal() {
   }, { rootMargin: '800px' }).observe($('#sentinel'));
 
   window.addEventListener('hashchange', routeHash);
+  window.addEventListener('popstate', routeHash);
 }
 
 function routeHash() {
-  const m = location.hash.match(/^#p-([a-z0-9-]+)$/);
-  if (m) openPrompt(decodeURIComponent(m[1]), { push: false });
+  const legacy = location.hash.match(/^#p-([a-z0-9-]+)$/);
+  if (legacy) return openPrompt(decodeURIComponent(legacy[1]), { push: 'replace' });
+  const m = location.pathname.match(/^\/p\/([a-z0-9-]+)\/?$/);
+  if (m) { if (current?.id !== m[1]) openPrompt(m[1], { push: false }); }
+  else if ($('#modal').open) $('#modal').close();
+}
+
+// Render prompts (the exact text sent to the image model) are published per prompt at build time.
+const renders = {};
+async function loadRenders(p) {
+  if (!p.examples.some((e) => e.img)) return;
+  try {
+    const res = await fetch(`/assets/renders/${p.id}.json`);
+    if (!res.ok) return;
+    Object.assign(renders, await res.json());
+    for (const b of document.querySelectorAll('[data-copyrender]')) if (renders[b.dataset.copyrender]) b.hidden = false;
+  } catch { /* offline or not built */ }
+}
+
+// Vercel Web Analytics (no-op until enabled for the project).
+function track(name, prompt, what) {
+  try { window.va?.('event', { name, data: { prompt, what } }); } catch { /* ignore */ }
 }
 
 function init() {
@@ -568,6 +596,7 @@ function init() {
   bindModal();
   bindBuilders();
   render();
+  document.getElementById('prerender')?.remove();
   routeHash();
 }
 

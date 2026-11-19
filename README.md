@@ -23,7 +23,7 @@ Prompt Atlas is a fast, zero-dependency web library of AI image and video prompt
 
 ## Features
 
-- **Search & filter** — full-text search (press `/` or `⌘K`), media type, collection, tool, sort (featured / A→Z / collection / shuffle).
+- **Search & filter** — ranked, typo-tolerant search across titles, tags and every example prompt, with synonyms (press `/` or `⌘K`), media type, collection, tool, sort (featured / A→Z / collection / shuffle).
 - **Prompt detail** — thumbnail, setup notes, best-for tags, pro tips, 3+ example prompts with their own covers, and a **live fill-in template** for every `[BRACKETED]` variable.
 - **Builders** — Bike Style command builder, Flow command stacker, Editorial formula, Camera director.
 - **Workflows** — six step-by-step playbooks linking straight to the prompts they use.
@@ -31,14 +31,19 @@ Prompt Atlas is a fast, zero-dependency web library of AI image and video prompt
 
 ## Run it
 
-No build step — it's static HTML + ES modules.
+No framework — static HTML + ES modules, plus a small build step that writes `dist/`.
 
 ```bash
-npm start            # python3 -m http.server 5173 → http://localhost:5173
-npm test             # node --test: data integrity, examples, templates, thumbnails
+npm start            # build, then serve dist/ → http://localhost:5173
+npm test             # data integrity, search, build output, images
+npm run build        # dist/: app + /p/<id> page per prompt + sitemap.xml + robots.txt
 ```
 
-Deploy by pointing GitHub Pages, Vercel or Netlify at the repository root.
+Deploys on Vercel from GitHub on every push (`vercel.json`: `npm run build`, output `dist`, clean URLs, cache headers). Set `SITE_URL` for a custom domain so canonical links, Open Graph tags and the sitemap use it.
+
+### Per-prompt pages & SEO
+
+Every prompt has its own URL (`/p/<prompt-id>`) with its own title, description, canonical link, Open Graph/Twitter preview (its rendered image) and JSON-LD, plus a no-JavaScript readable version. Opening a prompt in the app updates the URL, so shared links preview correctly. Old `#p-<id>` links redirect.
 
 ## Project structure
 
@@ -50,6 +55,9 @@ assets/js/library.js       Assembles all sources into one normalised library (pu
 assets/js/thumbs.js        Generative SVG fallback covers (13 motifs)
 assets/img/examples/       Real rendered example images (WebP, one per image example)
 scripts/generate-images.mjs Renders example images and writes assets/js/data/images.js
+scripts/render-prompt.mjs   How an example is reworded into the prompt sent to the image model
+scripts/build.mjs           Builds dist/ (prompt pages, render prompts, sitemap)
+vercel.json                 Build, clean URLs, cache headers
 assets/js/data/*.js        Source prompt data, subject pools and workflows
 tests/library.test.mjs     Node test suite
 ```

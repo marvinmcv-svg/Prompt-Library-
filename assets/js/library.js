@@ -128,6 +128,8 @@ function add(p) {
     return { ...e, id: `${id}-ex${i + 1}`, motif };
   });
   prompt.search = [prompt.title, prompt.cmd, prompt.desc, prompt.group, coll.name, prompt.tools.join(' '), prompt.bestFor.join(' '), prompt.type].join(' ').toLowerCase();
+  prompt.searchHead = [prompt.title, prompt.cmd].join(' ').toLowerCase();
+  prompt.searchBody = prompt.examples.map((e) => `${e.title} ${e.prompt}`).join(' ').toLowerCase();
   out.push(prompt);
 }
 
@@ -442,4 +444,61 @@ export function fillTemplate(template, values) {
 export function stats() {
   const examples = PROMPTS.reduce((n, p) => n + p.examples.length, 0);
   return { prompts: PROMPTS.length, examples, collections: COLLECTIONS.length, video: PROMPTS.filter((p) => p.type === 'video').length, image: PROMPTS.filter((p) => p.type === 'image').length };
+}
+
+// ------------------------------------------------------------------ search
+// Ranked, typo-tolerant search across titles, commands, tags and every example prompt.
+
+const SYNONYMS = [
+  ['jewelry', 'jewellery', 'jewel', 'ring', 'necklace'], ['colour', 'color'], ['grey', 'gray'],
+  ['ad', 'ads', 'advert', 'advertisement', 'commercial', 'campaign'], ['photo', 'photograph', 'shot', 'image', 'picture'],
+  ['video', 'clip', 'reel', 'film'], ['car', 'vehicle', 'automotive', 'convertible'], ['bike', 'motorcycle', 'motorbike'],
+  ['food', 'burger', 'dessert', 'drink', 'coffee', 'menu', 'restaurant'], ['makeup', 'cosmetics', 'lipstick', 'beauty', 'skincare'],
+  ['instagram', 'social', 'tiktok', 'reels', 'ugc'], ['portrait', 'headshot', 'face'], ['product', 'packshot', 'ecommerce'],
+  ['shoe', 'shoes', 'sneaker', 'sneakers'], ['perfume', 'fragrance', 'cologne'], ['watch', 'watches', 'timepiece'],
+  ['cartoon', 'animation', 'animated', 'pixar', '3d'], ['neon', 'cyberpunk', 'glow'], ['luxury', 'premium', 'high-end'],
+];
+const SYN = new Map();
+for (const group of SYNONYMS) for (const w of group) SYN.set(w, [...new Set([...(SYN.get(w) || []), ...group])]);
+
+const words = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+function near(a, b) { // edit distance <= 1
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+const vocab = new Map(); // prompt id -> Set of words
+const vocabOf = (p) => vocab.get(p.id) || vocab.set(p.id, new Set(words(`${p.search} ${p.searchBody}`))).get(p.id);
+
+/** Score one query term against a prompt: 0 = no match. */
+function termScore(p, term) {
+  const alts = SYN.get(term) || [term];
+  let best = 0;
+  for (const t of alts) {
+    const w = t === term ? 1 : 0.7;
+    const has = (text) => (t === term ? text.includes(t) : new RegExp(`\\b${t}\\b`).test(text));
+    if (has(p.searchHead)) best = Math.max(best, 10 * w);
+    else if (has(p.search)) best = Math.max(best, 6 * w);
+    else if (t === term && p.searchBody.includes(t)) best = Math.max(best, 3);
+  }
+  if (!best && term.length >= 5) for (const v of vocabOf(p)) if (near(term, v)) { best = 2; break; }
+  return best;
+}
+
+/** Filter and rank prompts for a free-text query. Every term must match (directly, by synonym or by a one-letter typo). */
+export function searchPrompts(list, query) {
+  const terms = words(query);
+  if (!terms.length) return list;
+  const scored = [];
+  for (const p of list) {
+    let total = 0;
+    for (const t of terms) { const s = termScore(p, t); if (!s) { total = 0; break; } total += s; }
+    if (total) scored.push([total, p]);
+  }
+  return scored.sort((a, b) => b[0] - a[0]).map(([, p]) => p);
 }

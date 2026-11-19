@@ -9,7 +9,7 @@
   --border-strong: #cfcbc0;
   --text: #15141a;
   --text-2: #4d4a55;
-  --muted: #7a7684;
+  --muted: #625e6c;
   --accent: #ff4f2e;
   --accent-2: #6d4dff;
   --accent-ink: #ffffff;
@@ -234,7 +234,7 @@ p { margin: 0; }
 @media (min-width: 720px) { .ex { grid-template-columns: 260px minmax(0, 1fr); } .ex .thumb { align-self: start; border-right: 1px solid var(--border); } }
 .ex__main { display: flex; flex-direction: column; min-width: 0; }
 .ex__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 16px; border-bottom: 1px solid var(--border); }
-.ex__head h4 { font-size: 15px; font-family: var(--font); font-weight: 600; letter-spacing: 0; }
+.ex__head h3 { font-size: 15px; font-family: var(--font); font-weight: 600; letter-spacing: 0; }
 .ex pre { margin: 0; padding: 12px 16px 14px; font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; background: var(--code-bg); flex: 1; }
 
 /* ------------------------------------------------------------ builders */
@@ -265,3 +265,10 @@ p { margin: 0; }
 .footer__inner { display: grid; gap: 8px; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; box-shadow: var(--shadow-lg); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.ex__note { margin: 0; padding: 8px 16px 12px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; border-top: 1px dashed var(--border); }
+.linkbtn { all: unset; cursor: pointer; font-weight: 600; color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+.linkbtn:hover, .linkbtn:focus-visible { color: var(--text); }
+.prerender { padding: 40px 0; }
+.prerender img { max-width: 100%; height: auto; border-radius: 14px; }
+.prerender pre { white-space: pre-wrap; font: 13px/1.6 var(--font-mono); background: var(--code-bg); padding: 14px; border-radius: 12px; }

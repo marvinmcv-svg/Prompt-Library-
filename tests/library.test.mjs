@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROMPTS, COLLECTIONS, WORKFLOWS, templateVars, fillTemplate, stats, bikeExpand } from '../assets/js/library.js';
+import { PROMPTS, COLLECTIONS, WORKFLOWS, templateVars, fillTemplate, stats, bikeExpand, searchPrompts } from '../assets/js/library.js';
 import { thumb, MOTIFS } from '../assets/js/thumbs.js';
 import { EXAMPLE_IMAGES } from '../assets/js/data/images.js';
 import { existsSync } from 'node:fs';
@@ -78,4 +78,14 @@ test('rendered example images resolve to real examples and files', () => {
     assert.equal(examples.get(id).img, `assets/img/examples/${id}.webp`);
   }
   for (const p of PROMPTS) if (p.examples.some((e) => e.img)) assert.ok(p.img, `${p.id} has example images but no cover`);
+});
+
+test('search ranks title matches first and tolerates typos and spelling variants', () => {
+  assert.equal(searchPrompts(PROMPTS, 'perfume ad')[0].title, 'Perfume Ad');
+  assert.ok(searchPrompts(PROMPTS, 'sunglases').length > 0, 'one-letter typo should still match');
+  const uk = searchPrompts(PROMPTS, 'jewellery').map((p) => p.title);
+  assert.ok(uk.some((t) => /jewel/i.test(t)), 'UK spelling should find jewelry prompts');
+  assert.ok(!uk.some((t) => /rain/i.test(t)), 'synonyms must match whole words only');
+  assert.equal(searchPrompts(PROMPTS, '').length, PROMPTS.length);
+  assert.equal(searchPrompts(PROMPTS, 'zzqqxx').length, 0);
 });
