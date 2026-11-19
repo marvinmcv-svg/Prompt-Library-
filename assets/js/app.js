@@ -224,7 +224,8 @@ function openPrompt(id, { push = true } = {}) {
                 : `<div class="thumb">${thumb({ seed: e.id, palette: c.palette, motif: e.motif, label: e.title, kicker: `Example ${i + 1}`, compact: true })}</div>`}
               <div class="ex__main">
                 <div class="ex__head"><h3>${esc(e.title)}</h3>
-                  <button class="btn btn--sm" type="button" data-copyex="${i}">${icons.copy}Copy</button></div>
+                  <span class="row"><button class="btn btn--sm" type="button" data-tryex="${i}" hidden title="Render a new variation of this example for free">Try</button>
+                  <button class="btn btn--sm" type="button" data-copyex="${i}">${icons.copy}Copy</button></span></div>
                 <pre>${esc(e.prompt)}</pre>
                 ${e.img ? `<p class="ex__note"><span>Example render · free model (Lucid Origin / Z-Image), not Flow or ChatGPT — results vary.</span>
                   <button class="linkbtn" type="button" data-copyrender="${e.id}" hidden>Copy image prompt</button></p>` : ''}
@@ -235,9 +236,11 @@ function openPrompt(id, { push = true } = {}) {
           ${vars.length ? `<div class="vars">${vars.map((v) => `<label class="field">${esc(v.toLowerCase())}<input data-var="${esc(v)}" placeholder="${esc(v.toLowerCase())}" /></label>`).join('')}</div>` : ''}
           <div class="codebox">
             <div class="codebox__bar"><span>${vars.length ? 'Fill the fields — the prompt updates live' : 'Master prompt'}</span>
-              <button class="btn btn--sm btn--primary" type="button" data-copytpl>${icons.copy}Copy prompt</button></div>
+              <span class="row"><button class="btn btn--sm" type="button" data-trytpl title="Render this prompt with a free AI model">Try it free</button>
+              <button class="btn btn--sm btn--primary" type="button" data-copytpl>${icons.copy}Copy prompt</button></span></div>
             <pre id="tplOut">${highlight(p.template)}</pre>
           </div>
+          <div class="tryout" id="tryOut" hidden></div>
         </div>
       </div>
     </div>`;
@@ -285,6 +288,8 @@ function bindModal() {
     else if (t.hasAttribute('data-copytpl')) copy(currentFilled(), 'Prompt copied');
     else if (t.hasAttribute('data-copyorig')) { copy(current.template, 'Original prompt copied'); track('copy', current.id, 'original'); }
     else if (t.dataset.copyrender) copy(renders[t.dataset.copyrender], 'Image prompt copied');
+    else if (t.hasAttribute('data-trytpl')) tryTemplate();
+    else if (t.dataset.tryex) tryExample(+t.dataset.tryex, t);
     else if (t.dataset.mtab) {
       modal.querySelectorAll('[data-mtab]').forEach((b) => b.setAttribute('aria-selected', String(b === t)));
       modal.querySelectorAll('[data-mpanel]').forEach((pn) => { pn.hidden = pn.dataset.mpanel !== t.dataset.mtab; });
@@ -576,7 +581,61 @@ async function loadRenders(p) {
     if (!res.ok) return;
     Object.assign(renders, await res.json());
     for (const b of document.querySelectorAll('[data-copyrender]')) if (renders[b.dataset.copyrender]) b.hidden = false;
+    document.querySelectorAll('[data-tryex]').forEach((b) => { if (renders[current?.examples[+b.dataset.tryex]?.id]) b.hidden = false; });
   } catch { /* offline or not built */ }
+}
+
+// ------------------------------------------------------------------ Try it (live render via /api/render)
+function sizeFor(text) {
+  const m = text.match(/\b(16:9|9:16|4:5|5:4|1:1|3:4|4:3|2:3|3:2|5:7)\b/);
+  const [a, b] = (m ? m[1] : '16:10').split(':').map(Number);
+  return a >= b ? { w: 1024, h: Math.round((1024 * b) / a / 16) * 16 } : { w: Math.round((1024 * a) / b / 16) * 16, h: 1024 };
+}
+// Image models don't know slash commands: turn "/cmd — what it does" into plain words, drop bare commands.
+const forModel = (text) => text.split('\n').map((l) => l.replace(/^\/[\w-]+(?:\s+\/[\w-]+)*\s+[—–]\s+/, '')).filter((l) => !/^\/[\w\- /]+$/.test(l.trim())).join('\n').trim();
+
+async function renderLive(prompt) {
+  const { w, h } = sizeFor(prompt);
+  const url = `/api/render?${new URLSearchParams({ prompt, w, h, seed: Math.floor(Math.random() * 1e6) })}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    let msg = 'Could not render right now.';
+    try { msg = (await res.json()).error || msg; } catch { /* not json */ }
+    throw new Error(msg);
+  }
+  return URL.createObjectURL(await res.blob());
+}
+
+async function tryTemplate() {
+  const box = $('#tryOut');
+  const prompt = forModel(currentFilled());
+  box.hidden = false;
+  if (/\[[A-Z0-9 /+,&'.-]{2,}\]/.test(prompt)) { box.innerHTML = '<p class="tryout__msg">Fill in the highlighted [FIELDS] above first, then try again.</p>'; return; }
+  box.innerHTML = '<p class="tryout__msg"><span class="spinner" aria-hidden="true"></span> Rendering with a free model… this takes 5–20 seconds.</p>';
+  track('try', current.id, 'template');
+  try {
+    const src = await renderLive(prompt);
+    box.innerHTML = `<figure><img src="${src}" alt="Live render of your prompt" /><figcaption>Rendered just now with a free model (Lucid Origin). Results in Flow, ChatGPT or Midjourney will differ. <a href="${src}" download="${current.id}.jpg">Download</a></figcaption></figure>`;
+  } catch (err) {
+    box.innerHTML = `<p class="tryout__msg tryout__msg--err">${esc(err.message)}</p>`;
+  }
+}
+
+async function tryExample(i, btn) {
+  const e = current.examples[i];
+  const prompt = renders[e.id];
+  if (!prompt) return;
+  const img = btn.closest('.ex').querySelector('.photo');
+  btn.disabled = true; btn.textContent = 'Rendering…';
+  track('try', current.id, `example-${i + 1}`);
+  try {
+    const src = await renderLive(prompt);
+    if (img) { img.src = src; img.closest('a')?.setAttribute('href', src); const k = img.parentElement.querySelector('.ov__k'); if (k) k.textContent = 'New variation'; }
+    btn.textContent = 'Try again';
+  } catch (err) {
+    toast(err.message);
+    btn.textContent = 'Try';
+  } finally { btn.disabled = false; }
 }
 
 // Vercel Web Analytics (no-op until enabled for the project).
