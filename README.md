@@ -41,6 +41,10 @@ npm run build        # dist/: app + /p/<id> page per prompt + sitemap.xml + robo
 
 Deploys on Vercel from GitHub on every push (`vercel.json`: `npm run build`, output `dist`, clean URLs, cache headers). Set `SITE_URL` for a custom domain so canonical links, Open Graph tags and the sitemap use it.
 
+### Try it (live renders)
+
+`api/render.js` is a Vercel function behind the **Try it free** / **Try** buttons. It renders with a free Pollinations model only (no cost), rejects unfilled `[FIELDS]` and over-long prompts, rate-limits each visitor (8 renders / 10 min per warm instance) and lets Vercel's CDN cache identical requests. It reads the key from the `POLLINATIONS_KEY` environment variable in the Vercel project — never commit the key.
+
 ### Per-prompt pages & SEO
 
 Every prompt has its own URL (`/p/<prompt-id>`) with its own title, description, canonical link, Open Graph/Twitter preview (its rendered image) and JSON-LD, plus a no-JavaScript readable version. Opening a prompt in the app updates the URL, so shared links preview correctly. Old `#p-<id>` links redirect.

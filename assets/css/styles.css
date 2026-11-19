@@ -281,3 +281,5 @@ p { margin: 0; }
 .tryout__msg--err { color: #d6334a; }
 .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--text); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+[hidden] { display: none !important; }
+.ex__head .row { flex-wrap: nowrap; gap: 6px; flex-shrink: 0; }
