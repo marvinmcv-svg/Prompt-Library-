@@ -75,6 +75,7 @@ async function generate({ p, e }) {
   const size = sizeFor(prompt);
   const seed = Number.parseInt((opt('--seed-salt', '') + e.id).split('').reduce((h, c) => ((h * 31 + c.charCodeAt(0)) >>> 0), 7)) % 1_000_000;
   let buf;
+  let safeTried = false;
   for (let attempt = 1; attempt <= 4 && !buf; attempt++) {
     try {
       buf = await fetchImage(prompt, size, seed, MODEL);
@@ -88,7 +89,13 @@ async function generate({ p, e }) {
         else await sleep(10_000);
         if (outage < 200) { attempt--; continue; }
       }
-      if (err.status === 422) { console.warn(`  ${e.id}: blocked by the free model's content filter, using fallback`); break; }
+      // Safety-filter false positive: retry once with a family-friendly note (sent to the model only).
+      if ((err.status === 422 || (err.status === 400 && /safety|nsfw|content/i.test(err.message))) && !safeTried) {
+        safeTried = true; console.warn(`  ${e.id}: content filter, retrying with a family-friendly note`);
+        try { buf = await fetchImage(`${prompt}\nTasteful, family-friendly, fully clothed, suitable for all audiences.`, size, seed, MODEL); } catch { /* fall through */ }
+        break;
+      }
+      if (err.status === 422 || err.status === 400) { console.warn(`  ${e.id}: blocked by the free model's content filter`); break; }
       console.warn(`  ${e.id} attempt ${attempt}: ${err.message}`);
       await sleep(4000 * attempt);
     }
