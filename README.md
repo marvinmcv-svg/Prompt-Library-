@@ -1,6 +1,6 @@
 # Prompt Atlas — Image & Video Prompt Library
 
-**599 prompts · 1,799 copy-ready examples · 12 collections · 1,799 real example renders · builders · workflows**
+**623 prompts · 1,871 copy-ready examples · 13 collections · real example renders · builders · workflows**
 
 Prompt Atlas is a fast, zero-dependency web library of AI image and video prompts for Google Flow (Veo / Omni Flash), ChatGPT, Gemini, Midjourney, Higgsfield, Minimax and Kling. Every image prompt shows real rendered example images, every prompt has a thumbnail, a fill-in template, pro tips, and **at least three complete example prompts** you can copy in one click.
 

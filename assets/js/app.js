@@ -22,26 +22,45 @@ const icons = {
   left: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
   right: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>',
   link: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
+  check: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   dice: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>',
 };
 
 function toast(msg) {
   const t = $('#toast');
+  // A modal <dialog> sits in the top layer, above any z-index: render the toast inside it while it is open.
+  const host = $('#modal').open ? $('#modal') : document.body;
+  if (t.parentElement !== host) host.appendChild(t);
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toast.t);
-  toast.t = setTimeout(() => t.classList.remove('show'), 1600);
+  toast.t = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-async function copy(text, label = 'Copied to clipboard') {
+async function copy(text, label = 'Copied to clipboard', btn = null) {
+  let ok = true;
   try { await navigator.clipboard.writeText(text); } catch {
     const ta = document.createElement('textarea');
-    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); } catch { /* ignore */ }
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    ($('#modal').open ? $('#modal') : document.body).appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
     ta.remove();
   }
-  toast(label);
+  toast(ok ? label : 'Copy failed — select the text and copy it manually');
+  if (ok && btn) flashCopied(btn);
+  return ok;
+}
+
+// Inline confirmation on the button that was pressed (the toast can be off-screen on long pages).
+function flashCopied(btn) {
+  if (btn.dataset.copiedLock) return;
+  btn.dataset.copiedLock = '1';
+  const html = btn.innerHTML;
+  const w = btn.offsetWidth;
+  btn.style.minWidth = `${w}px`;
+  btn.classList.add('is-copied');
+  btn.innerHTML = btn.classList.contains('iconbtn') || btn.classList.contains('glassbtn') ? icons.check : `${icons.check}<span>Copied</span>`;
+  setTimeout(() => { btn.innerHTML = html; btn.classList.remove('is-copied'); btn.style.minWidth = ''; delete btn.dataset.copiedLock; }, 1400);
 }
 
 const highlight = (text) => esc(text).replace(/\[([A-Z0-9][A-Z0-9 /+,&'.\-]*)\]/g, '<mark>[$1]</mark>');
@@ -109,7 +128,7 @@ function cardHTML(p) {
     </button>
     <div class="card__foot">
       <span class="card__tools">${esc(p.tools.join(' · '))}</span>
-      <button class="iconbtn" type="button" data-copy="${p.id}" title="Copy first example" aria-label="Copy first example of ${esc(p.title)}">${icons.copy}</button>
+      <button class="iconbtn" type="button" data-copy="${p.id}" title="Copy example prompt" aria-label="Copy first example of ${esc(p.title)}">${icons.copy}</button>
       <button class="iconbtn" type="button" data-save="${p.id}" aria-pressed="${isSaved}" title="${isSaved ? 'Remove from saved' : 'Save'}" aria-label="Save ${esc(p.title)}">${icons.heart}</button>
     </div>
   </article>`;
@@ -131,6 +150,12 @@ function render() {
   const ex = state.list.reduce((s, p) => s + p.examples.length, 0);
   $('#resultCount').textContent = `${fmt(n)} prompt${n === 1 ? '' : 's'} · ${fmt(ex)} examples`;
   $('#empty').hidden = n > 0;
+  if (!n) {
+    $('#emptyMsg').innerHTML = state.saved && !saved.size
+      ? '<strong>No saved prompts yet.</strong> Tap the ♥ on any prompt to keep it here — saves stay in this browser.'
+      : '<strong>No prompts match.</strong> Try a broader word or clear the filters.';
+    $('#clearBtn').textContent = state.saved && !saved.size ? 'Browse all prompts' : 'Clear filters';
+  }
   renderActive();
 }
 
@@ -146,7 +171,8 @@ function renderActive() {
 
 function setFilter(patch, { scroll = false } = {}) {
   Object.assign(state, patch);
-  $('#q').value = state.q;
+  if (document.activeElement !== $('#q')) $('#q').value = state.q;
+  if (document.activeElement !== $('#q2')) $('#q2').value = state.q;
   $('#collectionSel').value = state.collection;
   $('#toolSel').value = state.tool;
   $('#sortSel').value = state.sort;
@@ -160,7 +186,11 @@ function toggleSave(id) {
   if (saved.has(id)) saved.delete(id); else saved.add(id);
   store.set('pa:saved', [...saved]);
   $('#savedCount').textContent = saved.size;
-  document.querySelectorAll(`[data-save="${id}"]`).forEach((b) => b.setAttribute('aria-pressed', String(saved.has(id))));
+  const on = saved.has(id);
+  document.querySelectorAll(`[data-save="${id}"]`).forEach((b) => {
+    b.setAttribute('aria-pressed', String(on));
+    b.title = on ? 'Remove from saved' : 'Save';
+  });
   toast(saved.has(id) ? 'Saved' : 'Removed from saved');
   if (state.saved) render();
 }
@@ -180,13 +210,14 @@ function openPrompt(id, { push = true } = {}) {
     <div class="m-top">
       <div class="m-bar">
         <div class="group">
-          <button class="glassbtn" type="button" data-nav="-1" aria-label="Previous prompt">${icons.left}</button>
-          <button class="glassbtn" type="button" data-nav="1" aria-label="Next prompt">${icons.right}</button>
+          <button class="glassbtn" type="button" data-nav="-1" aria-label="Previous prompt" title="Previous (←)">${icons.left}</button>
+          <button class="glassbtn" type="button" data-nav="1" aria-label="Next prompt" title="Next (→)">${icons.right}</button>
         </div>
         <div class="group">
-          <button class="glassbtn" type="button" data-share aria-label="Copy link to this prompt">${icons.link}</button>
-          <button class="glassbtn" type="button" data-save="${p.id}" aria-pressed="${isSaved}" aria-label="Save prompt">${icons.heart}</button>
-          <button class="glassbtn" type="button" data-close aria-label="Close">${icons.x}</button>
+          <button class="btn btn--sm btn--primary m-copy" type="button" data-copyorig>${icons.copy}<span>Copy prompt</span></button>
+          <button class="glassbtn" type="button" data-share aria-label="Copy link to this prompt" title="Copy link">${icons.link}</button>
+          <button class="glassbtn" type="button" data-save="${p.id}" aria-pressed="${isSaved}" aria-label="${isSaved ? 'Remove from saved' : 'Save prompt'}" title="${isSaved ? 'Remove from saved' : 'Save prompt'}">${icons.heart}</button>
+          <button class="glassbtn" type="button" data-close aria-label="Close" title="Close (Esc)">${icons.x}</button>
         </div>
       </div>
     </div>
@@ -213,10 +244,10 @@ function openPrompt(id, { push = true } = {}) {
           <pre>${highlight(p.template)}</pre>
         </section>
         <div class="tabs" role="tablist">
-          <button role="tab" type="button" aria-selected="true" data-mtab="examples">Examples (${p.examples.length})</button>
-          <button role="tab" type="button" aria-selected="false" data-mtab="template">Template${vars.length ? ` · ${vars.length} field${vars.length === 1 ? '' : 's'}` : ''}</button>
+          <button role="tab" type="button" id="mt-examples" aria-controls="mp-examples" aria-selected="true" data-mtab="examples">Examples (${p.examples.length})</button>
+          <button role="tab" type="button" id="mt-template" aria-controls="mp-template" aria-selected="false" tabindex="-1" data-mtab="template">Template${vars.length ? ` · ${vars.length} field${vars.length === 1 ? '' : 's'}` : ''}</button>
         </div>
-        <div data-mpanel="examples" class="examples">
+        <div data-mpanel="examples" id="mp-examples" role="tabpanel" aria-labelledby="mt-examples" class="examples">
           ${p.examples.map((e, i) => `
             <div class="ex">
               ${e.img
@@ -232,8 +263,8 @@ function openPrompt(id, { push = true } = {}) {
               </div>
             </div>`).join('')}
         </div>
-        <div data-mpanel="template" hidden>
-          ${vars.length ? `<div class="vars">${vars.map((v) => `<label class="field">${esc(v.toLowerCase())}<input data-var="${esc(v)}" placeholder="${esc(v.toLowerCase())}" /></label>`).join('')}</div>` : ''}
+        <div data-mpanel="template" id="mp-template" role="tabpanel" aria-labelledby="mt-template" hidden>
+          ${vars.length ? `<div class="vars">${vars.map((v) => `<label class="field">${esc(v.toLowerCase())}<input data-var="${esc(v)}" placeholder="${esc(v.toLowerCase())}" autocomplete="off" /></label>`).join('')}</div>` : ''}
           <div class="codebox">
             <div class="codebox__bar"><span>${vars.length ? 'Fill the fields — the prompt updates live' : 'Master prompt'}</span>
               <span class="row"><button class="btn btn--sm" type="button" data-trytpl title="Render this prompt with a free AI model">Try it free</button>
@@ -248,8 +279,8 @@ function openPrompt(id, { push = true } = {}) {
   if (!modal.open) modal.showModal();
   body.scrollTop = 0;
   const url = `/p/${p.id}`;
-  if (push === 'replace') history.replaceState({ p: p.id }, '', url);
-  else if (push && location.pathname !== url) history.pushState({ p: p.id }, '', url);
+  if (push === 'replace') history.replaceState({ p: p.id, pushed: history.state?.pushed }, '', url);
+  else if (push && location.pathname !== url) history.pushState({ p: p.id, pushed: true }, '', url);
   document.title = `${p.title} — Prompt Atlas`;
   loadRenders(p);
 }
@@ -262,7 +293,10 @@ function closeModal() {
 function onModalClosed() {
   current = null;
   document.title = 'Prompt Atlas';
-  if (location.pathname.startsWith('/p/') || location.hash.startsWith('#p-')) history.pushState(null, '', '/' + location.search);
+  if (!(location.pathname.startsWith('/p/') || location.hash.startsWith('#p-'))) return;
+  // Opened from the list: step back so the Back button doesn't reopen the prompt. Opened from a shared link: swap the URL.
+  if (history.state?.pushed) history.back();
+  else history.replaceState(null, '', '/' + location.search);
 }
 
 function navModal(dir) {
@@ -283,15 +317,15 @@ function bindModal() {
     if (t.hasAttribute('data-close')) closeModal();
     else if (t.dataset.nav) navModal(+t.dataset.nav);
     else if (t.dataset.save) toggleSave(t.dataset.save);
-    else if (t.hasAttribute('data-share')) copy(location.href, 'Link copied');
-    else if (t.dataset.copyex) { copy(current.examples[+t.dataset.copyex].prompt, 'Example copied'); track('copy', current.id, `example-${+t.dataset.copyex + 1}`); }
-    else if (t.hasAttribute('data-copytpl')) copy(currentFilled(), 'Prompt copied');
-    else if (t.hasAttribute('data-copyorig')) { copy(current.template, 'Original prompt copied'); track('copy', current.id, 'original'); }
-    else if (t.dataset.copyrender) copy(renders[t.dataset.copyrender], 'Image prompt copied');
+    else if (t.hasAttribute('data-share')) copy(location.href, 'Link copied', t);
+    else if (t.dataset.copyex) { copy(current.examples[+t.dataset.copyex].prompt, 'Example copied', t); track('copy', current.id, `example-${+t.dataset.copyex + 1}`); }
+    else if (t.hasAttribute('data-copytpl')) { copy(currentFilled(), 'Prompt copied', t); track('copy', current.id, 'template'); }
+    else if (t.hasAttribute('data-copyorig')) { copy(current.template, 'Original prompt copied', t); track('copy', current.id, 'original'); }
+    else if (t.dataset.copyrender) copy(renders[t.dataset.copyrender], 'Image prompt copied', t);
     else if (t.hasAttribute('data-trytpl')) tryTemplate();
     else if (t.dataset.tryex) tryExample(+t.dataset.tryex, t);
     else if (t.dataset.mtab) {
-      modal.querySelectorAll('[data-mtab]').forEach((b) => b.setAttribute('aria-selected', String(b === t)));
+      modal.querySelectorAll('[data-mtab]').forEach((b) => { b.setAttribute('aria-selected', String(b === t)); b.tabIndex = b === t ? 0 : -1; });
       modal.querySelectorAll('[data-mpanel]').forEach((pn) => { pn.hidden = pn.dataset.mpanel !== t.dataset.mtab; });
     }
   });
@@ -311,6 +345,7 @@ function renderHero() {
   const s = stats();
   $('#heroStats').innerHTML = `<b>${fmt(s.prompts)}</b> prompts · <b>${fmt(s.examples)}</b> examples · <b>${s.collections}</b> collections`;
   $('#q').placeholder = `Search ${fmt(s.prompts)} prompts — “smoke reveal”, “billboard”, “rain”…`;
+  $('#collIntro').textContent = `${s.collections} curated sets, from 10-second commercials to one-word style codes and ready-made use-case packs.`;
   const chips = ['Product reveal', 'UGC', 'Billboard', 'Editorial', 'Orbit', 'Neon', 'Miniature', 'Rain', 'Luxury'];
   $('#quickChips').innerHTML = chips.map((c) => `<button class="chip" type="button" data-q="${esc(c)}">${esc(c)}</button>`).join('');
   const mosaicIds = ['analog-hyperkinetic-commercial', 'bike-hero-silhouette-anamorphic-sunset', 'flow-product-productinspace', 'editorial-zerogravityeditorial', 'camera-orbit-360', 'flow-product-dubaibillboardad', 'neon-cyber-commercial', 'miniature-3d-menu', 'higgsfield-neon'];
@@ -504,51 +539,77 @@ function bindBuilders() {
 
 // ------------------------------------------------------------------ theme
 function initTheme() {
-  const saved = store.get('pa:theme', null);
-  if (saved) document.documentElement.dataset.theme = saved;
+  const pref = store.get('pa:theme', null);
+  if (pref) document.documentElement.dataset.theme = pref;
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  const current = () => document.documentElement.dataset.theme || (mq.matches ? 'dark' : 'light');
+  const sync = () => {
+    const cur = current();
+    document.documentElement.dataset.themeResolved = cur;
+    $('#themeBtn').setAttribute('aria-label', `Switch to ${cur === 'dark' ? 'light' : 'dark'} theme`);
+  };
   $('#themeBtn').addEventListener('click', () => {
-    const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    const next = cur === 'dark' ? 'light' : 'dark';
+    const next = current() === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     store.set('pa:theme', next);
+    sync();
   });
+  mq.addEventListener?.('change', sync);
+  sync();
 }
 
 // ------------------------------------------------------------------ wiring
 function bindGlobal() {
   let qTimer;
-  $('#q').addEventListener('input', (e) => {
+  const onSearch = (e) => {
     clearTimeout(qTimer);
-    qTimer = setTimeout(() => setFilter({ q: e.target.value.trim() }), 120);
-  });
-  $('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#library').scrollIntoView({ behavior: 'smooth' }); });
+    qTimer = setTimeout(() => { setFilter({ q: e.target.value.trim() }); updateHeroHint(); }, 120);
+  };
+  $('#q').addEventListener('input', onSearch);
+  $('#q2').addEventListener('input', onSearch);
+  const goToResults = () => {
+    clearTimeout(qTimer);
+    setFilter({ q: $('#q').value.trim() });
+    $('#q').blur();
+    $('#heroHint').hidden = true;
+    $('#library').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  $('#heroSearch').addEventListener('submit', (e) => { e.preventDefault(); goToResults(); });
+  $('#heroHint').addEventListener('click', goToResults);
+  $('#q2').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
   $('#typeSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-type]'); if (b) setFilter({ type: b.dataset.type }); });
   $('#collectionSel').addEventListener('change', (e) => setFilter({ collection: e.target.value }));
   $('#toolSel').addEventListener('change', (e) => setFilter({ tool: e.target.value }));
   $('#sortSel').addEventListener('change', (e) => setFilter({ sort: e.target.value }));
   $('#savedBtn').addEventListener('click', () => setFilter({ saved: !state.saved }, { scroll: true }));
-  $('#clearBtn').addEventListener('click', () => setFilter({ q: '', type: 'all', collection: 'all', tool: 'all', saved: false }));
+  $('#clearBtn').addEventListener('click', () => { setFilter({ q: '', type: 'all', collection: 'all', tool: 'all', saved: false }); updateHeroHint(); });
   $('#activeFilters').addEventListener('click', (e) => {
     const b = e.target.closest('[data-clear]');
     if (!b) return;
     const k = b.dataset.clear;
     setFilter({ [k]: k === 'q' ? '' : k === 'saved' ? false : 'all' });
+    updateHeroHint();
   });
 
   document.addEventListener('click', (e) => {
     const t = e.target.closest('[data-open],[data-copy],[data-save],[data-coll],[data-q]');
     if (!t || t.closest('#modal')) return;
     if (t.dataset.open) openPrompt(t.dataset.open);
-    else if (t.dataset.copy) copy(byId.get(t.dataset.copy).examples[0].prompt, 'Example copied');
+    else if (t.dataset.copy) { copy(byId.get(t.dataset.copy).examples[0].prompt, 'Example prompt copied', t); track('copy', t.dataset.copy, 'card'); }
     else if (t.dataset.save) toggleSave(t.dataset.save);
     else if (t.dataset.coll) { e.preventDefault(); setFilter({ collection: t.dataset.coll, q: '' }, { scroll: true }); }
-    else if (t.dataset.q) setFilter({ q: t.dataset.q }, { scroll: true });
+    else if (t.dataset.q) { setFilter({ q: t.dataset.q }, { scroll: true }); updateHeroHint(); }
   });
 
   document.addEventListener('keydown', (e) => {
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
-    if ((e.key === '/' && !typing) || (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey))) {
-      e.preventDefault(); closeModal(); $('#q').focus(); $('#q').scrollIntoView({ block: 'center' });
+    if ((e.key === '/' && !typing) || (e.key?.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey))) {
+      e.preventDefault(); closeModal();
+      // Search where the user is: the library box once they've scrolled past the hero.
+      const hero = $('.hero').getBoundingClientRect();
+      const box = hero.bottom > 80 ? $('#q') : $('#q2');
+      box.focus(); box.select();
+      if (box === $('#q')) box.scrollIntoView({ block: 'center' });
     }
     if ($('#modal').open && !typing) {
       if (e.key === 'ArrowRight') navModal(1);
@@ -562,6 +623,18 @@ function bindGlobal() {
 
   window.addEventListener('hashchange', routeHash);
   window.addEventListener('popstate', routeHash);
+}
+
+// Live result count under the hero search: results render further down the page, so offer a jump.
+function updateHeroHint() {
+  const hint = $('#heroHint');
+  const q = $('#q').value.trim();
+  const heroFocused = document.activeElement === $('#q');
+  if (!q || !heroFocused && hint.hidden) { hint.hidden = true; return; }
+  const n = state.list.length;
+  hint.textContent = n ? `See ${fmt(n)} result${n === 1 ? '' : 's'} ↓` : 'No matches — try a broader word';
+  hint.disabled = !n;
+  hint.hidden = false;
 }
 
 function routeHash() {
@@ -617,7 +690,7 @@ async function tryTemplate() {
   track('try', current.id, 'template');
   try {
     const src = await renderLive(prompt);
-    box.innerHTML = `<figure><img src="${src}" alt="Live render of your prompt" /><figcaption>Rendered just now with a free model (Lucid Origin). Results in Flow, ChatGPT or Midjourney will differ. <a href="${src}" download="${current.id}.jpg">Download</a></figcaption></figure>`;
+    box.innerHTML = `<figure><img src="${src}" alt="Live render of your prompt" /><figcaption>Rendered just now with a free model (Lucid Origin). Results in Flow, ChatGPT or Midjourney will differ. <a href="${src}" download="${current.id}.jpg">Download image</a></figcaption></figure>`;
   } catch (err) {
     box.innerHTML = `<p class="tryout__msg tryout__msg--err">${esc(err.message)}</p>`;
   }

@@ -10,7 +10,7 @@
 //   SITE_URL=https://example.com node scripts/build.mjs
 
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { PROMPTS, COLLECTIONS } from '../assets/js/library.js';
+import { PROMPTS, COLLECTIONS, stats } from '../assets/js/library.js';
 import { renderPrompt } from './render-prompt.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -52,7 +52,9 @@ function headFor({ title, description, url, image, jsonld }) {
 const homeImage = PROMPTS.find((p) => p.id === 'editorial-zerogravityeditorial')?.img;
 await writeFile(`${DIST}/index.html`, headFor({
   title: 'Prompt Atlas — AI image & video prompt library',
-  description: shell.match(/<meta name="description" content="([^"]*)"/)[1],
+  // Exact counts at build time, so the description never goes stale as prompts are added.
+  description: shell.match(/<meta name="description" content="([^"]*)"/)[1]
+    .replace(/[\d,]+\+? prompts, [\d,]+\+? copy-ready examples/, () => { const s = stats(); return `${s.prompts.toLocaleString('en-US')} prompts, ${s.examples.toLocaleString('en-US')} copy-ready examples`; }),
   url: `${SITE}/`,
   image: homeImage && `${SITE}/${homeImage}`,
   jsonld: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Prompt Atlas', url: `${SITE}/` },
